@@ -67,9 +67,6 @@ const PAYMOB_INTEGRATION_ID = process.env.PAYMOB_INTEGRATION_ID;
     }
   };
   
-  
-  import crypto from "crypto";
-
   export const handlePaymentCallback = async (req, res) => {
       const { hmac, ...payload } = req.body;
   
