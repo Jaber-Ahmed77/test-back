@@ -68,31 +68,53 @@ const PAYMOB_INTEGRATION_ID = process.env.PAYMOB_INTEGRATION_ID;
   };
   
   
+  import crypto from "crypto";
+
   export const handlePaymentCallback = async (req, res) => {
-
-    const { hmac, ...payload } = req.body;
-
-    // Verify the HMAC signature
-    const generatedHmac = crypto
-      .createHash("sha512")
-      .update(JSON.stringify(payload))
-      .digest("hex");
+      const { hmac, ...payload } = req.body;
   
-    if (hmac === generatedHmac) {
-      // HMAC is valid
+      // 🔹 Secret key from your payment provider dashboard
+      const secret = "your-secret-key"; 
+  
+      // 🔹 Exclude 'hmac' and sort the remaining payload alphabetically
+      const sortedPayload = Object.keys(payload)
+          .sort()
+          .map((key) => `${key}=${payload[key]}`)
+          .join("&");
+  
+      // 🔹 Generate the expected HMAC using SHA512
+      const expectedHmac = crypto
+          .createHmac("sha512", secret)
+          .update(sortedPayload)
+          .digest("hex");
+  
+      // 🔹 Compare the received HMAC with the expected one
+      if (hmac !== expectedHmac) {
+          console.error("❌ Invalid HMAC signature - Possible fraud attempt!");
+          return res.status(400).json({ message: "Invalid HMAC, request rejected!" });
+      }
+  
+      // 🔹 Extract relevant payment details
       const { success, amount_cents, order, payment_key_claims } = payload;
   
-      if (success === "true") {
-        console.log(`Payment successful for order ${order.id}. Amount: ${amount_cents / 100}`);
-        // Update your database or trigger other actions
+      if (success) {
+          console.log(`✅ Payment successful for order ${order}. Amount: ${amount_cents / 100} EGP`);
+          // 🟢 Update your database: Mark the order as "Paid"
+          // await updateOrderStatus(order, "paid", amount_cents);
+          res.redirect("http://localhost:3000/analytics");
       } else {
-        console.log(`Payment failed for order ${order.id}`);
+          console.log(`❌ Payment failed for order ${order}`);
+          // 🔴 Update your database: Mark the order as "Failed"
+          // await updateOrderStatus(order, "failed", amount_cents);
+          res.redirect("http://localhost:3000/account");
       }
-    } else {
-      // HMAC is invalid
-      console.error("Invalid HMAC signature");
-    }
   
-    res.sendStatus(200);
-    
-  }
+      res.sendStatus(200);
+  };
+  
+  // Mock function to simulate updating order status in the database
+  // async function updateOrderStatus(orderId, status, amount) {
+  //     console.log(`🔄 Updating Order ${orderId}: Status = ${status}, Amount = ${amount / 100} EGP`);
+  //     // Database update logic goes here...
+  // }
+  
